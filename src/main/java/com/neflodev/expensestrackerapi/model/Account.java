@@ -16,7 +16,7 @@ public class Account {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
 
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "USER_ID", referencedColumnName = "id")
     private User user;
 
