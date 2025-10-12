@@ -1,12 +1,12 @@
 package com.neflodev.expensestrackerapi.web;
 
-import com.neflodev.expensestrackerapi.dto.LoginResponse;
-import com.neflodev.expensestrackerapi.dto.LoginUserDTO;
-import com.neflodev.expensestrackerapi.dto.RegisterUserDTO;
-import com.neflodev.expensestrackerapi.exception.custom.UsernameInUseException;
+import com.neflodev.expensestrackerapi.dto.authentication.LoginResponse;
+import com.neflodev.expensestrackerapi.dto.authentication.LoginUserDTO;
+import com.neflodev.expensestrackerapi.dto.authentication.RegisterUserDTO;
+import com.neflodev.expensestrackerapi.exception.custom.ConflictException;
 import com.neflodev.expensestrackerapi.model.User;
-import com.neflodev.expensestrackerapi.service.AuthenticationService;
-import com.neflodev.expensestrackerapi.service.JwtService;
+import com.neflodev.expensestrackerapi.service.authentication.AuthenticationService;
+import com.neflodev.expensestrackerapi.service.authentication.JwtService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -28,7 +28,7 @@ public class AuthenticationController {
     @PostMapping("/signup")
     public ResponseEntity<User> registerUser(@RequestBody RegisterUserDTO registerDTO) {
         if (authenticationService.isUserRegistered(registerDTO)){
-            throw new UsernameInUseException();
+            throw new ConflictException();
         }
 
         User registeredUser = authenticationService.signup(registerDTO);

@@ -1,7 +1,8 @@
 package com.neflodev.expensestrackerapi.service;
 
-import com.neflodev.expensestrackerapi.dto.LoginUserDTO;
-import com.neflodev.expensestrackerapi.dto.RegisterUserDTO;
+import com.neflodev.expensestrackerapi.dto.authentication.LoginUserDTO;
+import com.neflodev.expensestrackerapi.dto.authentication.RegisterUserDTO;
+import com.neflodev.expensestrackerapi.service.authentication.AuthenticationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;

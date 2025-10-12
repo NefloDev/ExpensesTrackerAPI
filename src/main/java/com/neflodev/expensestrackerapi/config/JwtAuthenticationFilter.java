@@ -1,6 +1,6 @@
 package com.neflodev.expensestrackerapi.config;
 
-import com.neflodev.expensestrackerapi.service.JwtService;
+import com.neflodev.expensestrackerapi.service.authentication.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

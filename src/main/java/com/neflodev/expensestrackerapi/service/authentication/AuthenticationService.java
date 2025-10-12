@@ -1,7 +1,7 @@
-package com.neflodev.expensestrackerapi.service;
+package com.neflodev.expensestrackerapi.service.authentication;
 
-import com.neflodev.expensestrackerapi.dto.LoginUserDTO;
-import com.neflodev.expensestrackerapi.dto.RegisterUserDTO;
+import com.neflodev.expensestrackerapi.dto.authentication.LoginUserDTO;
+import com.neflodev.expensestrackerapi.dto.authentication.RegisterUserDTO;
 import com.neflodev.expensestrackerapi.model.User;
 import com.neflodev.expensestrackerapi.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;

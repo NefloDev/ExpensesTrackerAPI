@@ -1,4 +1,4 @@
-package com.neflodev.expensestrackerapi.service;
+package com.neflodev.expensestrackerapi.service.authentication;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
