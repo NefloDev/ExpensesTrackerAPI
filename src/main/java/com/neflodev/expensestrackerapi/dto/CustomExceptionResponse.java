@@ -6,4 +6,4 @@ public record CustomExceptionResponse (
     String message,
     Integer statusCode,
     LocalDateTime timestamp
-) { }
+) {}
