@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Currency;
 import java.util.List;
 import java.util.Set;
@@ -38,7 +39,7 @@ public class AccountService {
 
         List<Account> userAccounts = repository.findByUser_Id(user.getId());
         if (userAccounts.isEmpty()) {
-            throw new NotFoundException("This user doesn't have any accounts.");
+            return new ArrayList<>();
         }
 
         return userAccounts.stream().map(mapper::accountToDto).toList();
