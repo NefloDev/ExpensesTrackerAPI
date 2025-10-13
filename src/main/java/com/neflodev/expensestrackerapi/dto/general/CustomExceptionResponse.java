@@ -1,4 +1,4 @@
-package com.neflodev.expensestrackerapi.dto;
+package com.neflodev.expensestrackerapi.dto.general;
 
 import java.time.LocalDateTime;
 

@@ -1,6 +1,6 @@
 package com.neflodev.expensestrackerapi.exception;
 
-import com.neflodev.expensestrackerapi.dto.CustomExceptionResponse;
+import com.neflodev.expensestrackerapi.dto.general.CustomExceptionResponse;
 import com.neflodev.expensestrackerapi.exception.custom.NotFoundException;
 import com.neflodev.expensestrackerapi.exception.custom.ConflictException;
 import com.neflodev.expensestrackerapi.exception.custom.CustomException;

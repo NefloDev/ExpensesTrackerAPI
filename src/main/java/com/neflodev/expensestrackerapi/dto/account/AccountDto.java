@@ -1,4 +1,4 @@
-package com.neflodev.expensestrackerapi.dto;
+package com.neflodev.expensestrackerapi.dto.account;
 
 import lombok.Getter;
 import lombok.Setter;

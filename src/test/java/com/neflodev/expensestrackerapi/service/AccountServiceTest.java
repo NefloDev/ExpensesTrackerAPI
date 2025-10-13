@@ -1,7 +1,7 @@
 package com.neflodev.expensestrackerapi.service;
 
-import com.neflodev.expensestrackerapi.dto.AccountCreateParams;
-import com.neflodev.expensestrackerapi.dto.AccountDto;
+import com.neflodev.expensestrackerapi.dto.account.AccountCreateParams;
+import com.neflodev.expensestrackerapi.dto.account.AccountDto;
 import com.neflodev.expensestrackerapi.exception.custom.NotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

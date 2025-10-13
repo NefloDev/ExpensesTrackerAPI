@@ -1,14 +1,15 @@
 package com.neflodev.expensestrackerapi.service;
 
-import com.neflodev.expensestrackerapi.dto.AccountCreateParams;
-import com.neflodev.expensestrackerapi.dto.AccountDto;
-import com.neflodev.expensestrackerapi.dto.IdBody;
+import com.neflodev.expensestrackerapi.constants.ExceptionsConst;
+import com.neflodev.expensestrackerapi.dto.account.AccountCreateParams;
+import com.neflodev.expensestrackerapi.dto.account.AccountDto;
+import com.neflodev.expensestrackerapi.dto.general.IdBody;
 import com.neflodev.expensestrackerapi.exception.custom.NotFoundException;
 import com.neflodev.expensestrackerapi.mapper.AccountMapper;
-import com.neflodev.expensestrackerapi.model.Account;
-import com.neflodev.expensestrackerapi.model.User;
-import com.neflodev.expensestrackerapi.repository.AccountRepository;
-import com.neflodev.expensestrackerapi.repository.UserRepository;
+import com.neflodev.expensestrackerapi.model.AccountEntity;
+import com.neflodev.expensestrackerapi.model.UserEntity;
+import com.neflodev.expensestrackerapi.repository.AccountEntityRepository;
+import com.neflodev.expensestrackerapi.repository.UserEntityRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -22,22 +23,22 @@ import java.util.Set;
 @Slf4j
 public class AccountService {
 
-    private final AccountRepository repository;
+    private final AccountEntityRepository repository;
     private final AccountMapper mapper;
-    private final UserRepository userRepo;
+    private final UserEntityRepository userRepo;
 
     @Autowired
-    public AccountService(AccountRepository repository, AccountMapper mapper, UserRepository userRepo) {
+    public AccountService(AccountEntityRepository repository, AccountMapper mapper, UserEntityRepository userRepo) {
         this.repository = repository;
         this.mapper = mapper;
         this.userRepo = userRepo;
     }
 
     public List<AccountDto> retrieveUserAccounts(String username){
-        User user = userRepo.findByUsername(username)
-                .orElseThrow(() -> new NotFoundException("Requested user was not found"));
+        UserEntity user = userRepo.findByUsername(username)
+                .orElseThrow(() -> ExceptionsConst.USER_NOT_FOUND_EXCEPTION);
 
-        List<Account> userAccounts = repository.findByUser_Id(user.getId());
+        List<AccountEntity> userAccounts = repository.findByUser_Id(user.getId());
         if (userAccounts.isEmpty()) {
             return new ArrayList<>();
         }
@@ -52,11 +53,11 @@ public class AccountService {
     }
     
     public IdBody createAccount(String username, AccountCreateParams params){
-        User user = userRepo.findByUsername(username)
-                .orElseThrow(() -> new NotFoundException("Requested user was not found"));
+        UserEntity user = userRepo.findByUsername(username)
+                .orElseThrow(() -> ExceptionsConst.USER_NOT_FOUND_EXCEPTION);
         Currency currencyName = Currency.getInstance(params.currency());
 
-        Account account = new Account();
+        AccountEntity account = new AccountEntity();
         account.setAccountName(params.accountName());
         account.setCurrency(currencyName.getCurrencyCode());
         account.setUser(user);

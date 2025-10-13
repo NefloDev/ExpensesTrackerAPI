@@ -4,7 +4,7 @@ import com.neflodev.expensestrackerapi.dto.authentication.LoginResponse;
 import com.neflodev.expensestrackerapi.dto.authentication.LoginUserDTO;
 import com.neflodev.expensestrackerapi.dto.authentication.RegisterUserDTO;
 import com.neflodev.expensestrackerapi.exception.custom.ConflictException;
-import com.neflodev.expensestrackerapi.model.User;
+import com.neflodev.expensestrackerapi.model.UserEntity;
 import com.neflodev.expensestrackerapi.service.authentication.AuthenticationService;
 import com.neflodev.expensestrackerapi.service.authentication.JwtService;
 import org.springframework.http.ResponseEntity;
@@ -26,19 +26,19 @@ public class AuthenticationController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<User> registerUser(@RequestBody RegisterUserDTO registerDTO) {
+    public ResponseEntity<UserEntity> registerUser(@RequestBody RegisterUserDTO registerDTO) {
         if (authenticationService.isUserRegistered(registerDTO)){
             throw new ConflictException();
         }
 
-        User registeredUser = authenticationService.signup(registerDTO);
+        UserEntity registeredUser = authenticationService.signup(registerDTO);
 
         return ResponseEntity.ok(registeredUser);
     }
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> authenticateUser(@RequestBody LoginUserDTO loginDTO) {
-        User authenticatedUser = authenticationService.authenticate(loginDTO);
+        UserEntity authenticatedUser = authenticationService.authenticate(loginDTO);
 
         String jwtToken = jwtService.generateToken(authenticatedUser);
 

@@ -1,13 +1,11 @@
 package com.neflodev.expensestrackerapi.web;
 
-import com.neflodev.expensestrackerapi.dto.AccountCreateParams;
-import com.neflodev.expensestrackerapi.dto.AccountDto;
-import com.neflodev.expensestrackerapi.dto.IdBody;
+import com.neflodev.expensestrackerapi.dto.account.AccountCreateParams;
+import com.neflodev.expensestrackerapi.dto.account.AccountDto;
+import com.neflodev.expensestrackerapi.dto.general.IdBody;
 import com.neflodev.expensestrackerapi.service.AccountService;
-import jakarta.websocket.server.PathParam;
+import com.neflodev.expensestrackerapi.util.CustomUtils;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,9 +21,8 @@ public class AccountController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<List<AccountDto>> postRetrieveUserAccounts(){
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String currentUserName = authentication.getName();
+    public ResponseEntity<List<AccountDto>> getRetrieveUserAccounts(){
+        String currentUserName = CustomUtils.retrieveSessionUsername();
 
         return ResponseEntity.ok(service.retrieveUserAccounts(currentUserName));
     }
@@ -37,14 +34,13 @@ public class AccountController {
 
     @PostMapping("/")
     public ResponseEntity<IdBody> postCreateAccount(@RequestBody AccountCreateParams params){
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String currentUserName = authentication.getName();
+        String currentUserName = CustomUtils.retrieveSessionUsername();
 
         return ResponseEntity.ok(service.createAccount(currentUserName, params));
     }
 
     @DeleteMapping("/{accountId}")
-    public ResponseEntity<Void> deleteAccount(@PathParam("accountId") Long accountId){
+    public ResponseEntity<Void> deleteAccount(@PathVariable("accountId") Long accountId){
         service.deleteAccount(accountId);
         return ResponseEntity.ok().build();
     }

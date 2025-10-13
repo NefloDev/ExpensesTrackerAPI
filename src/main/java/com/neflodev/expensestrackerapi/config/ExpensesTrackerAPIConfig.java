@@ -1,6 +1,6 @@
 package com.neflodev.expensestrackerapi.config;
 
-import com.neflodev.expensestrackerapi.repository.UserRepository;
+import com.neflodev.expensestrackerapi.repository.UserEntityRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -14,9 +14,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 @Configuration
 public class ExpensesTrackerAPIConfig {
 
-    private final UserRepository userRepo;
+    private final UserEntityRepository userRepo;
 
-    public ExpensesTrackerAPIConfig(UserRepository userRepo) {
+    public ExpensesTrackerAPIConfig(UserEntityRepository userRepo) {
         this.userRepo = userRepo;
     }
 
