@@ -2,9 +2,7 @@ package com.neflodev.expensestrackerapi.mapper;
 
 import com.neflodev.expensestrackerapi.dto.movement.MovementDto;
 import com.neflodev.expensestrackerapi.model.MovementEntity;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
+import org.mapstruct.*;
 
 @Mapper(componentModel = "spring")
 public interface MovementMapper {
@@ -15,6 +13,9 @@ public interface MovementMapper {
     MovementDto entityToDto(MovementEntity source);
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "category", expression = "java(source.getCategory() != null ? source.getCategory() : target.getCategory())")
+    @Mapping(target = "effectiveDate", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "comment", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     void updateMovement(@MappingTarget MovementEntity target, MovementEntity source);
 
 }

@@ -2,6 +2,7 @@ package com.neflodev.expensestrackerapi.web;
 
 import com.neflodev.expensestrackerapi.dto.general.IdBody;
 import com.neflodev.expensestrackerapi.dto.movement.MovementDto;
+import com.neflodev.expensestrackerapi.dto.movement.MovementFilters;
 import com.neflodev.expensestrackerapi.dto.movement.MovementParams;
 import com.neflodev.expensestrackerapi.dto.movement.MovementRequestBody;
 import com.neflodev.expensestrackerapi.service.MovementService;
@@ -30,14 +31,11 @@ public class MovementController {
         return ResponseEntity.ok(service.retrieveUserMovements(filters, sessionUsername));
     }
 
-    @GetMapping("/movementTypes")
-    public ResponseEntity<List<String>> postRetrieveMovementTypes(){
+    @GetMapping("/filters")
+    public ResponseEntity<MovementFilters> postRetrieveMovementTypes(){
         String sessionUsername = CustomUtils.retrieveSessionUsername();
-        if (sessionUsername == null) {
-            throw new UsernameNotFoundException("La sesión de usuario no es correcta");
-        }
 
-        return ResponseEntity.ok(service.retrieveMovementTypes());
+        return ResponseEntity.ok(service.retrieveMovementFilters(sessionUsername));
     }
 
     @PostMapping("/")
