@@ -20,7 +20,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.neflodev.expensestrackerapi.constants.CustomConstants.MINUS_ONE;
@@ -45,7 +48,19 @@ public class MovementService {
     }
 
     public List<MovementDto> retrieveUserMovements(MovementRequestBody filters, String username){
-        List<MovementEntity> userMovements = repo.findByAccount_AccountNameAndAccount_User_Username(filters.accountName(), username);
+        LocalDate from;
+        LocalDate to;
+
+        if (filters.startDate() == null && filters.endDate() == null){
+            YearMonth currentMonth = YearMonth.now();
+            from = currentMonth.atDay(1);
+            to = currentMonth.atEndOfMonth();
+        }else{
+            from = filters.startDate();
+            to = filters.endDate();
+        }
+
+        List<MovementEntity> userMovements = repo.findAllByAccountNameUserNameBetweenDates(filters.accountName(), username, from, to);
 
         if (userMovements.isEmpty()){
             log.info("com.neflodev.expensestrackerapi.service.MovementService.retrieveUserMovements() >> No movements found for user {}", username);
@@ -53,6 +68,10 @@ public class MovementService {
         }
 
         return userMovements.stream().map(mapper::entityToDto).toList();
+    }
+
+    public List<String> retrieveMovementTypes() {
+        return Arrays.stream(MovementType.values()).map(MovementType::name).toList();
     }
 
     public IdBody createMovement(MovementParams params, String username){

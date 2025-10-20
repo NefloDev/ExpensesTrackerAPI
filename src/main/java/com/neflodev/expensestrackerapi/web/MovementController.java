@@ -8,6 +8,7 @@ import com.neflodev.expensestrackerapi.service.MovementService;
 import com.neflodev.expensestrackerapi.util.CustomUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,6 +30,16 @@ public class MovementController {
         return ResponseEntity.ok(service.retrieveUserMovements(filters, sessionUsername));
     }
 
+    @GetMapping("/movementTypes")
+    public ResponseEntity<List<String>> postRetrieveMovementTypes(){
+        String sessionUsername = CustomUtils.retrieveSessionUsername();
+        if (sessionUsername == null) {
+            throw new UsernameNotFoundException("La sesión de usuario no es correcta");
+        }
+
+        return ResponseEntity.ok(service.retrieveMovementTypes());
+    }
+
     @PostMapping("/")
     public ResponseEntity<IdBody> postCreateMovement(@RequestBody MovementParams params){
         String sessionUsername = CustomUtils.retrieveSessionUsername();
@@ -45,6 +56,10 @@ public class MovementController {
 
     @DeleteMapping("/{movementId}")
     public ResponseEntity<Void> deleteMovement(@PathVariable("movementId") Long movementId){
+        String sessionUsername = CustomUtils.retrieveSessionUsername();
+        if (sessionUsername == null) {
+            throw new UsernameNotFoundException("La sesión de usuario no es correcta");
+        }
         service.deleteMovement(movementId);
 
         return ResponseEntity.ok().build();
