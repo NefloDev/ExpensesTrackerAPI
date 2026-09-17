@@ -1,48 +1,74 @@
-# Expenses Tracker API
+# ExpensesTrackerAPI
 
-A Spring Boot REST API for managing personal finances per registered user. It handles user registration and login with JWT-based session authentication, protects all financial endpoints by requester identity, and exposes CRUD operations for accounts, categories, and movements (income / expenses).
+> Personal-finance REST API: per-user accounts, categories, and income/expense movements behind JWT authentication.
 
-## Table of contents
+[![Java](https://img.shields.io/badge/Java-17-red)]() [![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5.6-green)]() [![License](https://img.shields.io/badge/License-GPL--3.0-blue)](LICENSE)
 
+ExpensesTrackerAPI solves personal expense tracking for individual users: each registered user owns their accounts, categories, and movements, and every financial endpoint resolves the caller from the JWT session — never from client input. It is consumed by frontends/clients over HTTP (default `http://localhost:8080`) using JSON DTOs.
+
+## Contents
 - [Features](#features)
-- [Tech stack](#tech-stack)
+- [How it works](#how-it-works)
+- [Concepts](#concepts)
 - [Architecture](#architecture)
-- [Project structure](#project-structure)
-- [Getting started](#getting-started)
+- [Tech stack](#tech-stack)
+- [Requirements](#requirements)
+- [Quickstart](#quickstart)
 - [Configuration](#configuration)
+- [Running](#running)
 - [API reference](#api-reference)
-- [Security](#security)
-- [Persistence](#persistence)
+- [Authentication](#authentication)
 - [Error handling](#error-handling)
-- [Build and tests](#build-and-tests)
+- [Project structure](#project-structure)
+- [Development](#development)
+- [Testing](#testing)
+- [Contributing](#contributing)
 - [License](#license)
-- [Author](#author)
 
 ## Features
+- User registration and login with BCrypt-hashed passwords and JWT issuance.
+- Stateless JWT request authentication via `JwtAuthenticationFilter` on every non-auth route.
+- Per-user data isolation: accounts, categories, and movements are always scoped to the session username.
+- Account CRUD: list own accounts, list ISO currency codes, create and delete accounts.
+- Category CRUD: list own categories, create (duplicate names rejected) and delete categories.
+- Movement tracking: date/account-filtered retrieval (defaults to current month), filter metadata, create/update/delete with `EXPENSE` / `INCOME` / `TRANSFER` semantics.
+- Centralized error responses via `CustomControllerAdvice`.
+- MapStruct DTO mapping, H2 in-memory persistence with SQL seed data, WAR packaging for servlet containers.
 
-- User registration (`POST /auth/signup`) and login (`POST /auth/login`) with JWT issuance.
-- Stateless request authentication via a custom JWT filter.
-- Per-user financial data isolation: movements, accounts, and categories are always resolved from the authenticated session username.
-- Account management: list own accounts, list available currencies, create and delete accounts.
-- Category management: list available categories, create and delete categories.
-- Movement management: filtered retrieval of user movements, movement filter metadata (types / dates), create, update, and delete movements.
-- Centralized error handling with a `@ControllerAdvice` boundary.
-- DTO-based request/response contracts plus MapStruct mappers for entity conversion.
-- H2 in-memory database for development/testing, seeded via `sql/*.sql`.
-- WAR packaging with `ServletInitializer` for external servlet-container deployment.
+## How it works
+1. Client calls `POST /auth/signup` (`RegisterUserDTO`), then `POST /auth/login` (`LoginUserDTO`) and stores the returned JWT.
+2. Client sends `Authorization: Bearer <token>` on every financial request.
+3. `JwtAuthenticationFilter` validates the token with `JwtService` and sets the authentication in the security context.
+4. The controller reads the username via `CustomUtils.retrieveSessionUsername()` and delegates to the service.
+5. The service enforces ownership, applies domain rules (e.g. `MovementType`), maps DTOs with MapStruct, and persists through Spring Data JPA.
+6. Domain failures surface as structured JSON errors through `CustomControllerAdvice`.
+```text
+POST /movements/ {accountName, amount, category, movementType} + Bearer JWT
+  -> MovementService.createMovement() resolves user/account/category
+  -> TBL_MOVEMENTS row saved, account balance adjusted
+  -> 201 {"id": 1001}
+```
 
-## Tech stack
-
-- Java 17
-- Spring Boot 3.5.6 (`spring-boot-starter-web`, `spring-boot-starter-security`, `spring-boot-starter-data-jpa`, `spring-boot-starter-data-jdbc`)
-- Spring Security with stateless session management
-- JWT: `io.jsonwebtoken` (`jjwt-api`, `jjwt-impl`, `jjwt-jackson`, version `0.11.5`)
-- JPA / Hibernate with H2 (`com.h2database:h2`, runtime scope)
-- MapStruct `1.6.3` (+ `mapstruct-processor`) with Lombok and `spring-boot-configuration-processor`
-- Maven wrapper (`mvnw` / `mvnw.cmd`), packaging: `war`
+## Concepts
+### Account
+A money container owned by one user (cash, bank, wallet). Key fields: `id`, `accountName` (unique), `currency` (ISO code, e.g. `EUR`), `currencySymbol` (derived), `balance`.
+```json
+{"id": 999, "accountName": "Test Account", "currency": "EUR", "currencySymbol": "€"}
+```
+### Category
+A user-owned label for movements (e.g. `Groceries`, `Loans`). Key field: `categoryName`. Duplicate names per user are rejected with `400`.
+```json
+{"categoryName": "Groceries"}
+```
+### Movement
+A single income/expense/transfer record linked to an account, a category, and optionally a destination account. Key fields: `id`, `accountName`, `amount`, `category`, `movementType` (`EXPENSE`|`INCOME`|`TRANSFER`), `destinationAccount`, `comment`. Retrieval filters use `accountName`, `startDate`, `endDate` (`dd-MM-yyyy`).
+```json
+{"amount": "-12.99", "category": "Subscriptions", "comment": "Netflix", "currencySymbol": "€"}
+```
+### User
+Registered identity and JWT subject. Key fields: `username` (unique), `name`, `surname`, BCrypt `password`. Implements `UserDetails` with no granted authorities.
 
 ## Architecture
-
 ```mermaid
 flowchart TD
 subgraph group_runtime["Runtime"]
@@ -130,239 +156,163 @@ class node_entities,node_repositories,node_user_sql,node_database toneIndigo
 ```
 
 > GitHub renders the `click` directives above as links from diagram nodes to their source files.
+- **Runtime:** `ExpensesTrackerApiApplication` entry point; `ServletInitializer` adapts it for WAR deployment.
+- **API:** `AuthenticationController` (`/auth/**`, public) plus `AccountController`, `CategoryController`, `MovementController` (Bearer-only).
+- **Domain:** `AccountService`, `CategoryService`, `MovementService`, `AuthenticationService`, `JwtService` (HS256), `MovementType` enum.
+- **Persistence:** `UserEntity`, `AccountEntity`, `CategoryEntity`, `MovementEntity` + four JPA repositories; H2 `create-drop` with `sql/user.sql` seeds.
 
-Request flow:
+## Tech stack
+| Tech | Version | Purpose |
+|------|---------|---------|
+| Java | 17 | Language |
+| Spring Boot | 3.5.6 | Web, DI, config (`spring-boot-starter-web`) |
+| Spring Security | via Boot 3.5.6 | Auth chain, stateless sessions, BCrypt |
+| jjwt (`api`/`impl`/`jackson`) | 0.11.5 | HS256 JWT issue/validation |
+| Spring Data JPA + Hibernate | via Boot 3.5.6 | Entities, repositories |
+| H2 | runtime | In-memory dev/test database |
+| MapStruct (+ processor) | 1.6.3 | DTO ↔ entity mapping |
+| Lombok | via Boot | Boilerplate reduction |
+| Maven wrapper | — | `mvnw` / `mvnw.cmd` builds, WAR packaging |
 
-1. `ExpensesTrackerApiApplication` boots the application; `ServletInitializer` adapts it for WAR deployment.
-2. `SecurityConfig` installs `JwtAuthenticationFilter` before `UsernamePasswordAuthenticationFilter`.
-3. Public `POST /auth/signup` and `POST /auth/login` go through `AuthenticationController` -> `AuthenticationService` -> `JwtService`.
-4. All other requests must carry `Authorization: Bearer <jwt>`; the filter validates the token with `JwtService` and establishes the security context.
-5. Financial controllers (`AccountController`, `CategoryController`, `MovementController`) resolve the session username via `CustomUtils.retrieveSessionUsername()` and delegate to `AccountService`, `CategoryService`, and `MovementService`.
-6. Services apply domain rules (including `MovementType`), convert DTOs with MapStruct mappers, and persist through Spring Data JPA repositories/entities to the database.
-7. Domain exceptions are translated by `CustomControllerAdvice` into structured error responses.
+## Requirements
+- Java 17: `java --version`
+- Maven wrapper included (no install needed): `./mvnw --version`
+- `JWT_SECRET_KEY` env var set (Base64, ≥256 bits): `echo $JWT_SECRET_KEY`
+- A free port `8080` (default) and H2 needs no external DB.
 
-## Project structure
-
-```text
-src/main/java/com/neflodev/expensestrackerapi/
-├── ExpensesTrackerApiApplication.java   # Spring Boot entry point
-├── ServletInitializer.java             # WAR / servlet-container adapter
-├── config/
-│   ├── SecurityConfig.java             # Access rules, stateless sessions, JWT filter wiring, CORS
-│   ├── JwtAuthenticationFilter.java    # Per-request JWT validation
-│   └── ExpensesTrackerAPIConfig.java   # Application beans (auth provider, etc.)
-├── web/
-│   ├── AuthenticationController.java   # POST /auth/signup, POST /auth/login
-│   ├── AccountController.java          # /accounts/...
-│   ├── CategoryController.java         # /categories/...
-│   └── MovementController.java         # /movements/...
-├── dto/
-│   ├── authentication/                 # RegisterUserDTO, LoginUserDTO, LoginResponse
-│   ├── account/                        # AccountCreateParams, AccountDto
-│   ├── category/                       # CategoryParams
-│   ├── movement/                       # MovementRequestBody, MovementParams, MovementDto, MovementFilters
-│   └── general/                        # IdBody, CustomExceptionResponse
-├── service/
-│   ├── authentication/
-│   │   ├── AuthenticationService.java  # Signup / authenticate
-│   │   └── JwtService.java             # Token generation / validation
-│   ├── AccountService.java
-│   ├── CategoryService.java
-│   └── MovementService.java
-├── mapper/                             # MapStruct mappers (AccountMapper, MovementMapper)
-├── model/                              # JPA entities (UserEntity, AccountEntity, CategoryEntity, MovementEntity)
-├── repository/                         # Spring Data JPA repositories
-├── constants/                          # CustomConstants, ExceptionsConst, enums/MovementType
-├── exception/
-│   ├── CustomControllerAdvice.java     # Global error boundary
-│   └── custom/                         # BadRequestException, ConflictException, CustomException, NotFoundException
-└── util/CustomUtils.java               # Session-username helper
-
-src/main/resources/
-├── application.properties              # App, H2, JPA, JWT settings
-└── sql/user.sql                        # Seed script loaded via spring.sql.init.data-locations
-```
-
-## Getting started
-
-Prerequisites:
-
-- Java 17
-- Maven (or use the included Maven wrapper; no global Maven install required)
-- `JWT_SECRET_KEY` environment variable set (required — the app fails to start without it; must be a sufficiently long secret for HS256)
-
-Clone and run (Linux/macOS):
-
+## Quickstart
 ```bash
 git clone https://github.com/NefloDev/ExpensesTrackerAPI.git
 cd ExpensesTrackerAPI
-export JWT_SECRET_KEY="<your-256-bit-secret>"
+export JWT_SECRET_KEY="$(openssl rand -base64 64)"
 ./mvnw spring-boot:run
-```
+# Windows PowerShell instead:
+# $env:JWT_SECRET_KEY = "base64-secret-min-32-bytes-long...."
+# .\mvnw.cmd spring-boot:run
 
-Windows:
-
-```powershell
-git clone https://github.com/NefloDev/ExpensesTrackerAPI.git
-cd ExpensesTrackerAPI
-$env:JWT_SECRET_KEY="<your-256-bit-secret>"
-.\mvnw.cmd spring-boot:run
-```
-
-The API starts on the default Spring Boot port (`http://localhost:8080`) unless overridden.
-
-Build a WAR for servlet-container deployment:
-
-```bash
-./mvnw clean package
-```
-
-The WAR entry point is `ServletInitializer`, which bootstraps `ExpensesTrackerApiApplication`.
-
-## Configuration
-
-`src/main/resources/application.properties`:
-
-```properties
-spring.application.name=ExpensesTrackerAPI
-
-spring.h2.console.enabled=true
-spring.datasource.url=jdbc:h2:mem:default;DB_CLOSE_DELAY=-1
-spring.datasource.driver-class-name=org.h2.Driver
-spring.datasource.username=sa
-spring.datasource.password=
-spring.jpa.generate-ddl=true
-spring.jpa.hibernate.ddl-auto=create-drop
-spring.batch.jdbc.initialize-schema=always
-spring.jpa.defer-datasource-initialization=true
-spring.sql.init.data-locations=classpath:sql/*.sql
-spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
-
-security.jwt.secret-key=${JWT_SECRET_KEY}
-security.jwt.expiration-time=3600000
-```
-
-Required environment variable:
-
-| Variable         | Mapped property              | Description                                                                 |
-| ---------------- | ---------------------------- | --------------------------------------------------------------------------- |
-| `JWT_SECRET_KEY` | `security.jwt.secret-key`    | HMAC signing secret for JWTs, injected via `@Value` in `JwtService`. No default — startup fails if unset. |
-
-Notes:
-
-- Uses an H2 in-memory database (`jdbc:h2:mem:default`) with `ddl-auto=create-drop`; schema/data scripts under `classpath:sql/*.sql` are loaded at startup.
-- H2 console is enabled for local inspection.
-- The JWT secret is **no longer hardcoded**: it is resolved from the `JWT_SECRET_KEY` environment variable. Generate a strong random value (at least 256 bits for HS256), e.g. `openssl rand -hex 32`, and never commit the real value. `security.jwt.expiration-time` remains `3600000` ms (1 hour) in `application.properties`.
-- CORS currently allows `http://localhost:8005` with `GET`/`POST` methods and `Authorization` / `Content-Type` headers (see `SecurityConfig#corsConfigurationSource`).
-
-## API reference
-
-Authenticated endpoints require:
-
-```http
-Authorization: Bearer <jwt>
-```
-
-### Auth
-
-| Method | Path          | Body            | Description                                   |
-| ------ | ------------- | --------------- | --------------------------------------------- |
-| POST   | `/auth/signup` | `RegisterUserDTO` | Register a user; `409 Conflict` if registered. |
-| POST   | `/auth/login`  | `LoginUserDTO`    | Authenticate; returns `LoginResponse` with JWT and expiration. |
-
-Example:
-
-```bash
+# smoke test: register + login
 curl -X POST http://localhost:8080/auth/signup \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"secret","fullName":"Demo User"}'
-
+  -d '{"username":"demo","password":"secret123","name":"Demo","surname":"User"}'
 curl -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"secret"}'
+  -d '{"username":"demo","password":"secret123"}'
 ```
 
-### Accounts
+## Configuration
+| Var | Required | Example | Notes |
+|-----|----------|---------|-------|
+| `JWT_SECRET_KEY` | Yes | output of `openssl rand -base64 64` | Maps to `security.jwt.secret-key`; Base64-decoded in `JwtService.getSignInKey()`; no default, startup fails if unset |
+| `security.jwt.expiration-time` | No (property) | `3600000` | Token lifetime in ms (1h), in `application.properties` |
+| `spring.datasource.url` | No (property) | `jdbc:h2:mem:default;DB_CLOSE_DELAY=-1` | In-memory H2; resets on restart |
+| `spring.jpa.hibernate.ddl-auto` | No (property) | `create-drop` | Schema recreated per run |
+| `spring.sql.init.data-locations` | No (property) | `classpath:sql/*.sql` | Seed data (`sql/user.sql`: users `User`, `UserNoAccounts`, accounts, categories, movements) |
+| `spring.h2.console.enabled` | No (property) | `true` | Local H2 console for development |
 
-| Method | Path                     | Description                          |
-| ------ | ------------------------ | ------------------------------------ |
-| GET    | `/accounts/me`           | List accounts of the session user.   |
-| GET    | `/accounts/currencies`   | List available currencies.           |
-| POST   | `/accounts/`             | Create an account (`AccountCreateParams`). |
-| DELETE | `/accounts/{accountId}` | Delete an account.                   |
+Base URL: `http://localhost:8080` (Spring Boot default; override with `server.port`). Secrets handling: never commit `JWT_SECRET_KEY` — use shell env, IDE run config, or a secret manager. CORS allows only `http://localhost:8005` (`GET`/`POST`, `Authorization`/`Content-Type`) — see `SecurityConfig#corsConfigurationSource`.
 
-### Categories
-
-| Method | Path                      | Description                              |
-| ------ | ------------------------- | ---------------------------------------- |
-| GET    | `/categories/me`          | List available categories for the user.  |
-| POST   | `/categories/`            | Create a category (`CategoryParams`).    |
-| DELETE | `/categories/{categoryId}` | Delete a category.                      |
-
-### Movements
-
-| Method | Path                       | Description                                                        |
-| ------ | -------------------------- | ------------------------------------------------------------------ |
-| POST   | `/movements/me`            | Retrieve user movements by filter body (`MovementRequestBody`).    |
-| GET    | `/movements/filters`       | Retrieve movement filter metadata for the user.                    |
-| POST   | `/movements/`              | Create a movement (`MovementParams`, `201 Created`, returns `IdBody`). |
-| PUT    | `/movements/`              | Update a movement (`MovementParams`, returns `IdBody`).            |
-| DELETE | `/movements/{movementId}` | Delete a movement.                                                 |
-
-Example:
-
+## Running
 ```bash
-curl http://localhost:8080/movements/filters \
-  -H "Authorization: Bearer <jwt>"
-
-curl -X POST http://localhost:8080/movements/me \
-  -H "Authorization: Bearer <jwt>" \
-  -H "Content-Type: application/json" \
-  -d '{}'
+# dev
+export JWT_SECRET_KEY="$(openssl rand -base64 64)"
+./mvnw spring-boot:run
+# prod WAR in external servlet container (ServletInitializer bootstraps the app)
+./mvnw clean package   # -> target/ExpensesTrackerAPI-0.0.1-SNAPSHOT.war
+# tests (need the env var: @SpringBootTest loads JwtService)
+./mvnw clean test
 ```
 
-## Security
+## API reference
+Base URL `http://localhost:8080`. Auth rule: `/auth/**` public, everything else requires `Authorization: Bearer <token>`. Controllers live in [`src/main/java/com/neflodev/expensestrackerapi/web/`](src/main/java/com/neflodev/expensestrackerapi/web/).
+### Auth — [`AuthenticationController.java`](src/main/java/com/neflodev/expensestrackerapi/web/AuthenticationController.java)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/auth/signup` | Public | Register; `200` + user, `409` if username taken |
+| POST | `/auth/login` | Public | Authenticate; `200` + `LoginResponse{token, expiresOn}` |
+```bash
+curl -X POST http://localhost:8080/auth/login -H "Content-Type: application/json" \
+  -d '{"username":"demo","password":"secret123"}'
+```
+### Accounts — [`AccountController.java`](src/main/java/com/neflodev/expensestrackerapi/web/AccountController.java)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/accounts/me` | Bearer | List session user's accounts |
+| GET | `/accounts/currencies` | Bearer | List ISO currency codes |
+| POST | `/accounts/` | Bearer | Create account (`AccountCreateParams{accountName, currency}`) → `IdBody` |
+| DELETE | `/accounts/{accountId}` | Bearer | Delete account or `404` |
+```bash
+curl -X POST http://localhost:8080/accounts/ -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"accountName":"Cash","currency":"EUR"}'
+```
+### Categories — [`CategoryController.java`](src/main/java/com/neflodev/expensestrackerapi/web/CategoryController.java)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/categories/me` | Bearer | List session user's category names |
+| POST | `/categories/` | Bearer | Create category (`CategoryParams{categoryName}`) → `201` + `IdBody`; dupes → `400` |
+| DELETE | `/categories/{categoryId}` | Bearer | Delete category or `404` |
+```bash
+curl -X POST http://localhost:8080/categories/ -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"categoryName":"Groceries"}'
+```
+### Movements — [`MovementController.java`](src/main/java/com/neflodev/expensestrackerapi/web/MovementController.java)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/movements/me` | Bearer | Query own movements (`MovementRequestBody{accountName, startDate, endDate}`); null dates → current month |
+| GET | `/movements/filters` | Bearer | Filter metadata (`MovementFilters{movementTypes, categories}`) |
+| POST | `/movements/` | Bearer | Create (`MovementParams`) → `201` + `IdBody` |
+| PUT | `/movements/` | Bearer | Update (`MovementParams` incl. `id`) → `IdBody` |
+| DELETE | `/movements/{movementId}` | Bearer | Delete movement |
+```bash
+curl -X POST http://localhost:8080/movements/me -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"accountName":"Test Account","startDate":"01-01-2025","endDate":"31-01-2025"}'
+```
 
-- `SecurityConfig` disables CSRF, permits only `/auth/**` anonymously, requires authentication for every other request, uses stateless sessions (`SessionCreationPolicy.STATELESS`), and registers `JwtAuthenticationFilter` before `UsernamePasswordAuthenticationFilter`.
-- `JwtAuthenticationFilter` extracts and validates the bearer token through `JwtService`.
-- `AuthenticationService` handles signup/authentication; `JwtService` generates tokens and exposes expiration.
-- Controllers never trust client-supplied user IDs: the username is taken from the security context (`CustomUtils.retrieveSessionUsername()`).
-
-## Persistence
-
-- Entities: `UserEntity`, `AccountEntity`, `CategoryEntity`, `MovementEntity`.
-- Repositories: `UserEntityRepository`, `AccountEntityRepository`, `CategoryEntityRepository`, `MovementEntityRepository`.
-- `MovementType` enum models the movement domain type and is used by movement filtering/creation logic.
-- Database is H2 in-memory by default; `src/main/resources/sql/user.sql` seeds users.
+## Authentication
+- Public: `POST /auth/signup`, `POST /auth/login`. Protected: everything else (any authenticated user; no roles/admin).
+- Header exact format: `Authorization: Bearer <token>` (parsed in `JwtAuthenticationFilter` as prefix `Bearer ` + 7-char offset).
+- Token: HS256 JWT, subject = username, signed with Base64 `JWT_SECRET_KEY`; expiry `security.jwt.expiration-time` = `3600000` ms (1h), returned as `expiresOn` in `LoginResponse`.
+- No refresh endpoint — log in again when expired. Passwords stored BCrypt-hashed (`BCryptPasswordEncoder`); login verifies via `DaoAuthenticationProvider`.
 
 ## Error handling
+Real shape from [`CustomExceptionResponse`](src/main/java/com/neflodev/expensestrackerapi/dto/general/CustomExceptionResponse.java) via [`CustomControllerAdvice`](src/main/java/com/neflodev/expensestrackerapi/exception/CustomControllerAdvice.java):
+```json
+{"message": "Requested movement was not found.", "statusCode": 404, "timestamp": "2025-10-12T10:15:30.123"}
+```
+| HTTP | When |
+|------|------|
+| 400 | `BadRequestException` (e.g. duplicate category name) — falls back to 500 handling path for non-`CustomException` only if uncaught |
+| 404 | `NotFoundException` (unknown user/account/category/movement; see `ExceptionsConst`) |
+| 409 | `ConflictException` (signup with taken username: `"That username is already in use"`) |
+| 500 | `CustomException` base case or any unexpected `Exception` (`"An unexpected error ocurred"`) |
 
-`CustomControllerAdvice` maps domain exceptions to HTTP responses:
-
-- `BadRequestException` -> `400`
-- `ConflictException` -> `409` (e.g. duplicate registration)
-- `NotFoundException` -> `404`
-- `CustomException` -> base custom error
-
-Error payloads use `CustomExceptionResponse`; creation/update payloads return `IdBody`.
-
-## Build and tests
-
-`JWT_SECRET_KEY` must be set in the environment before running the app or any test that loads the Spring context:
-
-```bash
-export JWT_SECRET_KEY="<your-256-bit-secret>"
-./mvnw clean test
-./mvnw clean package
-./mvnw spring-boot:run
+## Project structure
+```text
+src/main/java/com/neflodev/expensestrackerapi/  # application code
+src/main/java/.../web/          # controllers (Auth, Account, Category, Movement)
+src/main/java/.../dto/          # request/response contracts (records + Lombok classes)
+src/main/java/.../service/      # business logic + authentication/JwtService
+src/main/java/.../model/ + repository/  # JPA entities + Spring Data repos
+src/main/java/.../config/       # SecurityConfig, JwtAuthenticationFilter, beans
+src/main/java/.../exception/    # CustomControllerAdvice + custom exceptions
+src/main/resources/             # application.properties, sql/user.sql seeds
+src/test/java/.../service/      # @SpringBootTest service tests
 ```
 
-On Windows replace `./mvnw` with `.\mvnw.cmd` (and set the variable with `$env:JWT_SECRET_KEY="<your-256-bit-secret>"`).
+## Development
+- Thin controllers: read session username, delegate to services, return DTOs — no business logic in `web/`.
+- DTOs: Java records for inputs (`RegisterUserDTO`, `LoginUserDTO`, `AccountCreateParams`, `CategoryParams`, `MovementRequestBody`, `IdBody`) and Lombok classes for outputs (`MovementDto`, `AccountDto`).
+- Validation rules: unique username (409), unique category per user (400), existing account/category/user required (404), movement dates `dd-MM-yyyy`, currency must be a valid ISO code (`Currency.getInstance`).
+- Conventions: per-user scoping in every service method, `ExceptionsConst` for shared not-found errors, SLF4J logging in services/advice.
+
+## Testing
+```bash
+export JWT_SECRET_KEY="$(openssl rand -base64 64)"  # required: Spring context loads JwtService
+./mvnw clean test
+```
+Covers `AuthenticationService` (registration lookup, signup), `AccountService` (user accounts, currencies), `MovementService` (filtered retrieval with fixed `Clock`, filter metadata, create/update/delete), plus `contextLoads`. Seed data in `src/main/resources/sql/user.sql` backs the `@SpringBootTest` cases.
+
+## Contributing
+Issues → fork → branch → add/adjust tests → PR. Keep controllers thin, scope every query to the session user, and extend `ExceptionsConst` + advice mapping for new domain errors.
 
 ## License
-
-This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for the full text.
-
-## Author
-
-[NefloDev](https://github.com/NefloDev)
+See [LICENSE](LICENSE) (GPL-3.0).
